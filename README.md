@@ -5,20 +5,6 @@ obstacle course: 8 stages, each built around one concept, ending in a "quiz gate
 player must choose the right door to move on. No installs, no accounts, no ads, no internet
 needed once the page is open. Works on laptops (keyboard) and tablets (on-screen buttons).
 
-Everything is in **one file: `index.html`**. Double-click it to play right now.
-
-## Put it online for free (GitHub Pages) — about 5 minutes
-
-1. Sign in at github.com → click **+** (top right) → **New repository**.
-   Name it `cyber-defender-obby`, keep it **Public**, click **Create repository**.
-2. On the new repo page click **uploading an existing file**, drag in `index.html`
-   (and this `README.md` if you like), then click **Commit changes**.
-3. Click **Settings** → **Pages** (left menu). Under *Build and deployment* choose
-   **Deploy from a branch**, branch **main**, folder **/ (root)**, click **Save**.
-4. Wait about a minute, refresh the Pages screen, and your game is live at
-   `https://<your-username>.github.io/cyber-defender-obby/`
-5. Share that link (or make a QR code of it for a class). Any phone, tablet or laptop can play.
-
 Progress, the Hall of Fame and unlocked stages are saved in each player's own browser.
 
 ## The 8 stages
