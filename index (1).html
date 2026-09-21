@@ -1,0 +1,1080 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="dark">
+<meta name="description" content="Cyber Defender Obby — a free browser platformer that teaches kids cybersecurity: passwords, phishing, two-factor authentication, privacy, malware, updates, online strangers, and encryption.">
+<title>Cyber Defender Obby</title>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#070b16; --bg2:#0d1428; --panel:#111a30; --panel2:#182444; --line:#23325a;
+  --text:#e8f0ff; --muted:#9fb0d0; --accent:#38e1ff; --accent2:#7c5cff; --good:#3ddc84; --bad:#ff5470; --gold:#ffcc4d;
+  --shadow:0 18px 50px rgba(0,0,0,.55);
+  --radius:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%}
+body{display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+#stage{position:relative;width:960px;height:540px;transform-origin:center center;background:var(--bg2);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+canvas{display:block;width:960px;height:540px}
+
+/* HUD */
+#hud{position:absolute;inset-block-start:0;inset-inline:0;display:flex;gap:8px;align-items:center;padding:8px 10px;pointer-events:none;font-size:13px;font-weight:600}
+#hud .chip{background:rgba(8,12,26,.72);border:1px solid var(--line);border-radius:999px;padding:5px 10px;backdrop-filter:blur(6px);white-space:nowrap}
+#hud .grow{flex:1;text-align:center;color:var(--muted);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#hud button{pointer-events:auto;cursor:pointer;background:rgba(8,12,26,.72);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:5px 10px;font:inherit;font-weight:700}
+#hud button:hover{border-color:var(--accent)}
+
+/* Toast */
+#toast{position:absolute;inset-inline:0;inset-block-end:92px;display:flex;justify-content:center;pointer-events:none}
+#toast span{background:rgba(8,12,26,.9);border:1px solid var(--accent);color:var(--text);padding:10px 16px;border-radius:12px;font-weight:700;font-size:15px;opacity:0;transform:translateY(8px);transition:opacity .25s,transform .25s;max-width:80%;text-align:center}
+#toast.show span{opacity:1;transform:translateY(0)}
+
+/* Touch controls */
+#touch{position:absolute;inset-inline:0;inset-block-end:0;display:none;justify-content:space-between;padding:14px;pointer-events:none}
+#touch.on{display:flex}
+#touch .grp{display:flex;gap:12px}
+#touch button{pointer-events:auto;width:74px;height:74px;border-radius:50%;border:2px solid rgba(255,255,255,.25);background:rgba(20,30,60,.55);color:var(--text);font-size:28px;font-weight:800;touch-action:none;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(4px)}
+#touch button:active,#touch button.down{background:rgba(56,225,255,.35);border-color:var(--accent)}
+
+/* Rotate hint (small portrait screens) */
+#rotate{display:none;position:absolute;inset-inline:0;inset-block-start:46px;text-align:center;font-weight:700;font-size:26px;padding:10px;background:rgba(8,12,26,.85);pointer-events:none}
+@media (orientation: portrait) and (max-width: 820px){#rotate{display:block}}
+
+/* Overlay */
+#overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,8,18,.72);backdrop-filter:blur(3px);padding:18px}
+#overlay.show{display:flex}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;max-width:600px;width:100%;max-height:100%;overflow:auto;box-shadow:var(--shadow);animation:pop .22s ease-out}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.card:focus{outline:none}
+.card h1{margin:0 0 6px;font-size:30px;letter-spacing:.5px}
+.card h2{margin:0 0 8px;font-size:22px}
+.card h3{margin:14px 0 6px;font-size:15px;color:var(--accent);text-transform:uppercase;letter-spacing:1px}
+.card p{margin:6px 0;line-height:1.45;color:var(--text)}
+.card .muted{color:var(--muted);font-size:14px}
+.card .kicker{display:inline-block;background:rgba(56,225,255,.12);color:var(--accent);border:1px solid rgba(56,225,255,.35);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;margin-block-end:8px}
+.card .kicker.bad{background:rgba(255,84,112,.12);color:var(--bad);border-color:rgba(255,84,112,.4)}
+.card .kicker.good{background:rgba(61,220,132,.12);color:var(--good);border-color:rgba(61,220,132,.4)}
+.btns{display:flex;flex-wrap:wrap;gap:10px;margin-block-start:16px}
+.btn{cursor:pointer;border:1px solid var(--line);background:var(--panel2);color:var(--text);font:inherit;font-weight:700;font-size:15px;padding:11px 16px;border-radius:12px;transition:transform .08s,border-color .15s;text-align:start}
+.btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#06101f;border:none}
+.btn.ghost{background:transparent}
+.btn.block{flex:1 1 100%}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.opts{display:grid;gap:10px;margin-block-start:12px}
+.opts .btn{font-size:16px;padding:14px 16px}
+.chat{display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.bubble{max-width:85%;padding:10px 14px;border-radius:16px;line-height:1.35;font-size:15px}
+.bubble.them{align-self:flex-start;background:#26325a;border-end-start-radius:4px}
+.bubble.me{align-self:flex-end;background:linear-gradient(135deg,#1e9bd2,#7c5cff);border-end-end-radius:4px}
+.bubble .who{display:block;font-size:11px;color:var(--muted);margin-block-end:3px;font-weight:700;letter-spacing:.5px}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.stat{flex:1 1 120px;background:rgba(8,12,26,.5);border:1px solid var(--line);border-radius:12px;padding:10px 12px;text-align:center}
+.stat b{display:block;font-size:22px}
+.stat span{font-size:12px;color:var(--muted)}
+.progress{height:12px;background:rgba(8,12,26,.6);border-radius:999px;overflow:hidden;border:1px solid var(--line);margin:12px 0}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--good));animation:fill 1.6s linear forwards}
+@keyframes fill{to{width:100%}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-block-start:10px}
+.grid .btn{display:flex;flex-direction:column;gap:2px;font-size:14px}
+.grid .btn small{color:var(--muted);font-weight:500}
+input.name{font:inherit;font-size:16px;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(8,12,26,.6);color:var(--text);width:100%}
+table.lb{width:100%;border-collapse:collapse;font-size:14px;margin-block-start:8px}
+table.lb td,table.lb th{padding:6px 8px;border-block-end:1px solid var(--line);text-align:start}
+table.lb th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+.guide .stage{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-block-start:10px;background:rgba(8,12,26,.35)}
+.guide .stage b{color:var(--accent)}
+.controls{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;margin-block-start:8px}
+.controls kbd{background:rgba(8,12,26,.7);border:1px solid var(--line);border-block-end-width:3px;border-radius:6px;padding:2px 8px;font-family:inherit;font-weight:800;font-size:13px}
+
+/* Print document (certificate / facilitator guide) */
+#printdoc{display:none}
+@media print{
+  body{background:#fff;color:#111;display:block;overflow:visible}
+  #stage{display:none}
+  #printdoc{display:block;padding:24px;font-family:Georgia,"Times New Roman",serif;color:#111}
+  #printdoc .frame{border:6px double #1b3a6b;padding:28px 36px;border-radius:12px}
+  #printdoc .cert{text-align:center;padding:40px}
+  #printdoc h1{font-size:40px;margin:0 0 6px;letter-spacing:2px;color:#1b3a6b}
+  #printdoc h2{font-size:22px;margin:18px 0 6px}
+  #printdoc h2 small{font-size:14px;color:#555;font-weight:normal}
+  #printdoc .name{font-size:38px;margin:16px 0;color:#1b3a6b;border-block-end:2px solid #1b3a6b;display:inline-block;padding:0 30px 6px}
+  #printdoc p{font-size:15px;margin:6px 0;line-height:1.4}
+  #printdoc .cert p{font-size:18px}
+  #printdoc .small{font-size:14px;color:#555}
+  #printdoc .badges{display:flex;justify-content:center;flex-wrap:wrap;gap:8px;margin-block-start:16px}
+  #printdoc .badges span{border:1px solid #1b3a6b;border-radius:999px;padding:4px 12px;font-size:13px}
+  #printdoc .pstage{border-block-start:1px solid #ccc;padding-block-start:6px;margin-block-start:10px;break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="960" height="540" aria-label="Cyber Defender Obby game" role="img"></canvas>
+  <div id="hud">
+    <span class="chip" id="hud-stage">Stage 1</span>
+    <span class="grow" id="hud-goal"></span>
+    <span class="chip" id="hud-items"></span>
+    <span class="chip" id="hud-falls">💥 0</span>
+    <span class="chip" id="hud-time">⏱ 0:00</span>
+    <button id="hud-menu" type="button" aria-label="Menu">☰</button>
+  </div>
+  <div id="toast" aria-live="polite"><span id="toast-text"></span></div>
+  <div id="touch">
+    <div class="grp"><button type="button" id="t-left" aria-label="Move left">◀</button><button type="button" id="t-right" aria-label="Move right">▶</button></div>
+    <div class="grp"><button type="button" id="t-jump" aria-label="Jump">⤒</button></div>
+  </div>
+  <div id="overlay" role="dialog" aria-modal="true"><div class="card" id="card" tabindex="-1"></div></div>
+  <div id="rotate">📱 Turn your device sideways (landscape) for the best view</div>
+</div>
+<div id="printdoc"></div>
+<script>
+'use strict';
+/* =====================================================================
+   CYBER DEFENDER OBBY — a free, single-file browser game
+   ---------------------------------------------------------------------
+   ✏️  EDIT HERE: everything the game SAYS lives in the CONTENT block
+   below — stage names, quiz questions, answers, tips, fact cards and
+   the facilitator guide. Change the words, save the file, refresh.
+   `answer` is the index (0, 1 or 2) of the correct option.
+   ===================================================================== */
+const CONTENT = {
+  title: 'Cyber Defender Obby',
+  tagline: 'Run, jump, and outsmart the hackers — 8 stages of cybersecurity.',
+  credit: 'Cloudberry Academy',
+  stages: [
+    {
+      name: 'Password Gate', concept: 'Strong passwords',
+      objective: 'Learn the moves, cross the pit, then pick the STRONGEST password door.',
+      gate: {
+        question: 'Which password is the STRONGEST?',
+        options: ['gabby123', 'Purple!Tiger$Runs42', 'password2026'], answer: 1,
+        tip: 'Long + a mix of letters, numbers and symbols + nothing about YOU = strong. Names, birthdays and "password" are the first things hackers try.'
+      },
+      fact: 'Strong passwords are long (12+ characters), mix letters, numbers and symbols, and never use personal info like your name or birthday. A passphrase like "Purple!Tiger$Runs42" is easy for you to remember and very hard to crack. Use a different password for every account — a password manager can remember them for you.',
+      debrief: 'What makes a password strong? Why is "gabby123" a bad idea even though it is easy to remember?',
+      home: 'Make a passphrase together from 3 random words + a number + a symbol. Practice typing it — then never share it.'
+    },
+    {
+      name: 'Phishing Bridge', concept: 'Spotting phishing',
+      objective: 'Phishy messages RUSH you or promise PRIZES. Step only on real messages — phishy planks crumble!',
+      gate: {
+        question: 'Which message is PHISHING?',
+        options: ['Library: your book is due Friday.', 'URGENT! Your account will be deleted — click here NOW to verify!', 'Coach: practice moved to 4pm.'], answer: 1,
+        tip: 'Phishing rushes you ("NOW!"), threatens you ("deleted!") or promises prizes. Real companies never ask for your password in a message.'
+      },
+      fact: 'Phishing is a fake message designed to trick you into clicking a link or giving away information. Red flags: urgency, threats, prizes, strange spelling, senders you do not know, and links you did not ask for. When in doubt, do not click — show a trusted adult.',
+      debrief: 'Which planks crumbled? What did those messages have in common?',
+      home: 'Look at a real email or text together and hunt for red flags. Talk about what to do if a "prize" message arrives.'
+    },
+    {
+      name: 'Two-Factor Tower', concept: 'Two-factor authentication (2FA/MFA)',
+      objective: 'Remember the CODE on the sign (something you KNOW), climb for the KEY CARD (something you HAVE), then unlock the vault.',
+      gate: {
+        question: 'The vault needs BOTH factors. Enter the code from the sign:',
+        options: ['4471', '4417', '7144'], answer: 0,
+        tip: 'Two-factor authentication = something you KNOW (a code or password) + something you HAVE (a key, phone or fingerprint). The code was 4471.'
+      },
+      noKeyTip: '🔒 Locked! A code alone is only ONE factor. Climb the tower and grab the KEY CARD first.',
+      fact: 'Two-factor authentication (also called 2FA or MFA) means a password PLUS a second proof — a code on your phone, a security key, or a fingerprint. Even if a hacker steals your password, they still cannot get in. Turn it on for games, email and social accounts.',
+      debrief: 'What were the two "factors" in this stage? Why is having two better than one?',
+      home: 'Turn on two-factor authentication for one family account (Xbox, Roblox, email) together.'
+    },
+    {
+      name: 'Oversharing Maze', concept: 'Personal information & privacy',
+      objective: 'Collect what is SAFE to share. Jump over PRIVATE info — strangers can find you with it!',
+      gate: {
+        question: 'Which is SAFE to share with online friends?',
+        options: ['Your home address', 'The name of your school', 'Your favorite video game'], answer: 2,
+        tip: 'Anything that helps a stranger find you in real life stays private: address, school, full name, birthday, phone number and photos that show where you are.'
+      },
+      privateTip: 'That was PRIVATE information! Strangers can put small clues together like a puzzle to find you. Keep your address, school, birthday and phone number offline.',
+      fact: 'Personal information is like a puzzle — strangers can put small pieces together. Keep your address, school, birthday, phone number, passwords and location private. Favorite games, hobbies and colors are fine to share.',
+      debrief: 'Why is the name of your school private? What could someone do with it?',
+      home: 'Check the privacy settings on one game or app together — who can see the profile, and what does it show?'
+    },
+    {
+      name: 'Malware Lava Field', concept: 'Malware & safe downloads',
+      objective: 'Only OFFICIAL downloads are safe. "Free Robux" files are MALWARE — touch one and it is game over!',
+      gate: {
+        question: 'Which download is SAFE?',
+        options: ['FreeRobux_Generator.exe from a pop-up', 'The game\'s official update from the App Store', 'UnlockAllSkins.zip from a stranger in chat'], answer: 1,
+        tip: '"Free Robux", "free V-Bucks" and "unlock all skins" downloads are how malware spreads. Only download from official app stores and trusted sites.'
+      },
+      malwareTip: '☠ That was MALWARE! "Free" downloads from pop-ups and strangers steal passwords or lock your files.',
+      fact: 'Malware is software made to harm you — it can steal passwords, spy through your camera, or lock your files until you pay (ransomware). It hides inside "free" downloads, cracked games and pop-ups. Only install from official app stores, and ask before downloading anything new.',
+      debrief: 'What made the fake downloads tempting? How can you tell an official source from a fake one?',
+      home: 'Show where the official app store is on your device and how to check who made an app before installing it.'
+    },
+    {
+      name: 'Update Elevator', concept: 'Software updates',
+      objective: 'The elevator is buggy and an update is waiting. Find the panel and choose wisely.',
+      gate: {
+        question: 'Why install updates QUICKLY?',
+        options: ['They fix security holes that hackers use', 'They make the game harder', 'Updates are just for new emojis'], answer: 0,
+        tip: 'Updates patch the security holes hackers already know about. "Remind me later" leaves the door open for them.'
+      },
+      fact: 'Software updates fix bugs — including security holes. Hackers race to attack devices that have not updated yet. Turning on automatic updates for your phone, tablet, games and apps closes those doors before anyone can use them.',
+      debrief: 'What happened when you chose "Remind me later"? Why do companies release updates so often?',
+      home: 'Check for updates on one device together and turn on automatic updates.'
+    },
+    {
+      name: 'Chat Room', concept: 'Strangers online',
+      objective: 'A stranger wants to chat. Watch for red flags, then choose how to respond.',
+      gate: {
+        question: 'A stranger online asks where you go to school. You should…',
+        options: ['Tell them — they seem nice', 'Make up a fake school', 'Do not answer, block & report, and tell a trusted adult'], answer: 2,
+        tip: 'People online are not always who they say they are. Never share personal info, use Block and Report, and tell a trusted adult — that is never "tattling".'
+      },
+      fact: 'People online are not always who they say they are. Never share passwords or personal information, never agree to meet someone from online, and never keep an online chat secret from your family. Block and Report buttons exist for you — use them, then tell a trusted adult.',
+      debrief: 'What were the red flags in the stranger\'s messages? Who is a trusted adult you would tell?',
+      home: 'Find the Block and Report buttons together in one game or app your child uses.'
+    },
+    {
+      name: 'Encryption Vault', concept: 'Encryption',
+      objective: 'The vault code is ENCRYPTED. Shift each letter back 3 to decode it, then pick the right door.',
+      gate: {
+        question: 'Decoded the message? Pick the vault door with the right color.',
+        options: ['RED', 'BLUE', 'GREEN'], answer: 1,
+        tip: 'Shift each letter back 3: F→C, R→O, G→D, H→E … "FRGH LV EOXH" becomes "CODE IS BLUE".'
+      },
+      cipher: 'FRGH LV EOXH',
+      fact: 'Encryption scrambles a message so only someone with the key can read it. Your chats, games and online shopping are protected by encryption every day — that is what the 🔒 padlock in your browser means. Caesar\'s letter shift is 2,000 years old; modern encryption uses giant math keys that would take computers billions of years to guess.',
+      debrief: 'How did you decode the message? Why do we want our messages encrypted?',
+      home: 'Write each other secret notes with a shift cipher, then find the padlock icon on a website together.'
+    }
+  ],
+  keypad: { title: 'Vault Keypad', noKeyToast: '🔒 Locked. You need the KEY CARD (something you HAVE) — climb the tower!' },
+  update: {
+    title: 'Update available',
+    body: 'Elevator OS 2.4 fixes a security bug that lets hackers control the elevator. Install now?',
+    yes: 'Update now', later: 'Remind me later',
+    laterMsgs: ['The bug is still there… and so is the hacker. The elevator does not move.', 'Still buggy. Hackers love devices that "remind me later".', 'Hint: every day you wait is a day hackers already know about the hole.'],
+    installing: 'Installing update…', done: '✅ Patched! The elevator works again.'
+  },
+  chat: {
+    npc: 'xX_Ninja_9000',
+    messages: ['hey ur really good at this game!! 😎', 'i can give u 10,000 FREE coins 🤑 but the site needs ur password', 'also what school do u go to? maybe we can meet up 👀', 'dont tell ur parents, its a secret deal just for u'],
+    options: ['Sure! My password is…', 'Block, report, and tell a trusted adult', 'Ask them what THEY get out of it first'], answer: 1,
+    wrongTip: 'Red flags: FREE stuff, asking for your PASSWORD, asking about your SCHOOL, and "keep it secret". Anyone doing that — even a "friend" — gets blocked and reported. Then tell a trusted adult.',
+    success: '🛡 Blocked & reported. You told a trusted adult — the barrier opens!'
+  },
+  signs: {
+    controls: 'Welcome, Defender! Move with ← → (or A D). Jump with SPACE or ↑. On a tablet, use the buttons.',
+    doors: 'Walk into a door and press JUMP (⤒) to choose it. Wrong door = back to the checkpoint, so read first!'
+  },
+  win: {
+    title: 'Cyber Defender!',
+    body: 'You beat all 8 stages. You now know more about staying safe online than most grown-ups.'
+  }
+};
+
+/* ===================== PHYSICS (tuned; tests depend on these) ===================== */
+const PH = { W: 960, H: 540, GRAV: 0.55, JUMP: 11.5, SPEED: 4.2, MAXFALL: 15, COYOTE: 7, PW: 28, PHH: 40, GY: 500, STEP: 1 / 60 };
+
+/* ===================== LEVEL BUILDER ===================== */
+let _id = 0;
+function builder() {
+  const L = { w: 0, plats: [], hazards: [], checkpoints: [], items: [], signs: [], npcs: [], panels: [], minigates: [], gate: null, spawn: { x: 60, y: PH.GY - PH.PHH }, route: [] };
+  let cx = 0;
+  function addPlat(x, y, w, h, o) {
+    const p = Object.assign({ id: ++_id, x, y, w, h, kind: 'solid', label: null, route: true }, o || {});
+    if (p.kind === 'moving') { p.baseY = y; p.range = p.range || 25; p.speed = p.speed || 0.03; p.phase = p.phase || 0; p.active = p.active !== false; p.prevY = y; }
+    if (p.kind === 'crumble') { p.state = 'ok'; p.timer = 0; }
+    L.plats.push(p);
+    if (p.route && p.kind !== 'kill' && !(p.kind === 'crumble' && p.phish)) L.route.push(p.id);
+    return p;
+  }
+  const B = {
+    x: () => cx,
+    ground(w, o) { o = o || {}; const y = o.y == null ? PH.GY : o.y; const p = addPlat(cx, y, w, PH.H - y + 40, Object.assign({ ground: true }, o)); cx += w; return p; },
+    gap(w) { cx += w; },
+    lava(w) { L.hazards.push({ x: cx, y: PH.GY + 14, w, h: 60, kind: 'lava' }); cx += w; },
+    plat(w, y, o) { const p = addPlat(cx, y, w, (o && o.h) || 18, o); cx += w; return p; },
+    at(x, y, w, o) { return addPlat(x, y, w, (o && o.h) || 18, Object.assign({ route: false }, o)); },
+    checkpoint(x) { L.checkpoints.push({ x, y: PH.GY, hit: false }); },
+    sign(x, text, o) { L.signs.push(Object.assign({ x, y: PH.GY, text }, o || {})); },
+    item(x, y, o) { L.items.push(Object.assign({ x, y, r: 13, got: false }, o)); },
+    npc(x, o) { L.npcs.push(Object.assign({ x, y: PH.GY, resolved: false, cooldown: 0 }, o)); },
+    panel(x, o) { L.panels.push(Object.assign({ x, y: PH.GY, used: false }, o)); },
+    minigate(o) { // two doors on a 250px ground segment; the barrier opens when the REAL message is chosen
+      const x = cx; const labels = o.realFirst ? [o.real, o.phish] : [o.phish, o.real];
+      const mg = { x, w: 250, solved: false, tip: o.tip, question: o.question || 'Which message is REAL? Enter that door.', doors: [] };
+      mg.doors = labels.map((label, i) => ({ label, i, ok: label === o.real, mg, x: x + 40 + i * 100, y: PH.GY - 100, w: 70, h: 100, open: 0 }));
+      mg.barrier = addPlat(x + 215, 300, 20, 200, { kind: 'barrier', route: false, label: 'READ FIRST', mg });
+      L.minigates.push(mg);
+      L.checkpoints.push({ x: x + 12, y: PH.GY, hit: false });
+      B.ground(250);
+      return mg;
+    },
+    gate(o) { // doors sit on the ground at cx; wall runs to the level end
+      const doors = o.labels.map((label, i) => ({ label, i, x: cx + 30 + i * 100, y: PH.GY - 100, w: 70, h: 100, open: 0 }));
+      const w = 30 + o.labels.length * 100 + 40;
+      L.gate = Object.assign({ x: cx, w, doors, type: o.type || 'quiz' }, o);
+      addPlat(cx, PH.GY, w, PH.H - PH.GY + 40, { ground: true, route: true });
+      cx += w; L.w = cx;
+      return L.gate;
+    },
+    done() { if (!L.w) L.w = cx; return L; }
+  };
+  return B;
+}
+
+const PHISH = ['FREE PRIZE!! Click', 'URGENT: verify NOW', 'You WON $500!!!', 'Acct locked — login', 'Free Robux here!', 'Pkg waiting — click', 'Password expired!', 'Claim gift card NOW', 'Last chance!!! Act'];
+const REAL = ['Mom: dinner at 6', 'Library: due Friday', 'Coach: practice 4pm', 'Teacher: quiz Tues', 'Grandma: call me ❤', 'Dad: pickup 3pm', 'Friend: game later?', 'Dentist: Thu 10am', 'Team: snacks Sat'];
+
+const LEVELS = [
+  // 1 — Password Gate (tutorial)
+  function () {
+    const B = builder();
+    B.ground(600); B.sign(200, CONTENT.signs.controls); B.sign(470, 'Jump the gap! Press SPACE / ↑ near the edge.');
+    B.gap(90); B.ground(310); B.checkpoint(720);
+    B.gap(80); B.plat(120, 450); B.gap(80); B.plat(120, 400); B.gap(80);
+    B.ground(220); B.sign(1560, 'Lava ahead — jump over it!'); B.lava(100); B.ground(250); B.checkpoint(1850);
+    B.sign(1980, CONTENT.signs.doors);
+    B.gate({ labels: CONTENT.stages[0].gate.options });
+    return B.done();
+  },
+  // 2 — Phishing Bridge
+  function () {
+    const B = builder();
+    B.ground(400); B.sign(150, 'Phishy messages RUSH you, THREATEN you or promise PRIZES. At each gate, walk into the REAL message.'); B.checkpoint(330);
+    B.gap(70); B.plat(130, 500); B.gap(70); B.plat(130, 450); B.gap(70);
+    B.minigate({ real: 'Mom: dinner at 6', phish: 'URGENT: verify your account NOW', realFirst: false, tip: '"URGENT" and "NOW" are pressure words. Real people and companies do not rush you into clicking.' });
+    B.gap(70); B.plat(130, 500); B.gap(70); B.plat(130, 440); B.gap(70); B.plat(130, 500); B.gap(70);
+    B.minigate({ real: 'Library: book due Friday', phish: 'You WON a $500 gift card!!!', realFirst: true, tip: 'Prizes you never entered to win are bait. If it sounds too good to be true, it is a phish.' });
+    B.gap(80); B.plat(120, 450); B.gap(80);
+    B.minigate({ real: 'Coach: practice moved to 4pm', phish: 'Acct locked — log in here to fix', realFirst: false, tip: 'Threats like "account locked" push you to a fake login page that steals your password. Go to the real app yourself instead.' });
+    B.gap(70); B.plat(130, 500); B.gap(70);
+    B.ground(300); B.checkpoint(B.x() - 270); B.sign(B.x() - 170, 'Last one: which message is PHISHING? Choose a door.');
+    B.gate({ labels: ['Library: due Friday', 'URGENT! Verify NOW', 'Coach: practice 4pm'] });
+    return B.done();
+  },
+  // 3 — Two-Factor Tower
+  function () {
+    const B = builder();
+    B.ground(500); B.sign(140, 'Two-factor = something you KNOW + something you HAVE. Today\'s code is 4471. Remember it!'); B.checkpoint(400);
+    B.gap(70); B.plat(120, 450); B.gap(70); B.plat(120, 400); B.gap(70); B.plat(120, 350); B.gap(70);
+    const top = B.plat(120, 300); B.item(top.x + 60, 262, { kind: 'key', label: 'KEY CARD' });
+    B.gap(70); B.plat(120, 360); B.gap(70); B.plat(120, 420); B.gap(70);
+    B.ground(350); B.lava(100); B.ground(250); B.checkpoint(B.x() - 200); B.sign(B.x() - 120, 'Locked vault. Do you have BOTH factors? Stand at the door.');
+    B.gate({ type: 'keypad', labels: ['KEYPAD'] });
+    return B.done();
+  },
+  // 4 — Oversharing Maze
+  function () {
+    const B = builder();
+    B.ground(400); B.sign(130, 'Grab SAFE-to-share tokens. JUMP OVER private info — strangers use it to find you!'); B.checkpoint(330);
+    B.ground(600);
+    B.at(600, 440, 90); B.item(645, 405, { kind: 'safe', label: 'Favorite game' });
+    B.item(820, 486, { kind: 'private', label: 'Home address' });
+    B.gap(80); B.ground(620);
+    B.item(1200, 486, { kind: 'private', label: 'School name' });
+    B.at(1350, 440, 90); B.item(1395, 405, { kind: 'safe', label: 'Hobby' });
+    B.item(1560, 486, { kind: 'private', label: 'Birthday' });
+    B.lava(100); B.ground(700); B.checkpoint(1830);
+    B.at(1900, 440, 90); B.item(1945, 405, { kind: 'safe', label: 'Favorite color' });
+    B.item(2080, 486, { kind: 'private', label: 'Phone number' });
+    B.at(2200, 440, 90); B.item(2245, 405, { kind: 'safe', label: 'Favorite animal' });
+    B.checkpoint(2350); B.sign(2430, 'Which is SAFE to share with online friends?');
+    B.gate({ labels: CONTENT.stages[3].gate.options });
+    return B.done();
+  },
+  // 5 — Malware Lava Field
+  function () {
+    const B = builder();
+    B.ground(400); B.sign(130, 'Ride only OFFICIAL downloads across the lava. Fake "free stuff" files are MALWARE.'); B.checkpoint(330);
+    const safe = ['App Store', 'Official update', 'School portal', 'Teacher\'s link', 'Game update ✓', 'Library app'];
+    const fake = ['FreeRobux.exe', 'Hack_Tool.zip', 'UnlockAllSkins.exe', 'CrackedGame.exe', 'FREE_Vbucks.apk'];
+    const start = B.x();
+    B.lava(70 + (safe.length - 1) * 190 + 120 + 70);
+    for (let i = 0; i < safe.length; i++) {
+      B.at(start + 70 + i * 190, 450, 120, { kind: 'moving', range: 18, speed: 0.03, phase: i * 1.3, label: safe[i], route: true });
+      if (i < fake.length) B.at(start + 70 + i * 190 + 145, 492, 80, { kind: 'kill', label: fake[i] });
+    }
+    B.ground(450); B.checkpoint(B.x() - 420); B.sign(B.x() - 300, 'Which download is SAFE? Choose a door.');
+    B.gate({ labels: ['FreeRobux.exe (pop-up)', 'Official App Store update', 'Skins.zip from a stranger'] });
+    return B.done();
+  },
+  // 6 — Update Elevator
+  function () {
+    const B = builder();
+    B.ground(480); B.sign(130, 'The elevator is buggy and an update is waiting. Walk to the PANEL and choose.'); B.checkpoint(330);
+    B.panel(400, { label: 'UPDATE?' });
+    B.lava(120); // shaft under the elevator (480..600)
+    B.at(480, 350, 120, { kind: 'moving', range: 150, speed: 0.012, active: false, elevator: true, label: 'Elevator', route: true, h: 16 });
+    B.ground(400, { y: 200 }); // tall block 600..1000
+    B.gap(80); B.plat(120, 240); B.gap(80); B.plat(120, 300); B.gap(80); B.ground(220, { y: 360 });
+    B.gap(80); B.plat(120, 430); B.gap(80); B.ground(330); B.checkpoint(B.x() - 300); B.sign(B.x() - 200, 'Why install updates quickly? Choose a door.');
+    B.gate({ labels: CONTENT.stages[5].gate.options });
+    return B.done();
+  },
+  // 7 — Chat Room
+  function () {
+    const B = builder();
+    B.ground(1300); B.sign(130, 'A stranger wants to chat. Look for RED FLAGS before you answer.'); B.checkpoint(330);
+    B.npc(700, { name: CONTENT.chat.npc });
+    B.at(820, 300, 30, { kind: 'barrier', h: 200, route: false, label: 'LOCKED' });
+    B.lava(100); B.ground(300); B.gap(80); B.plat(120, 450); B.gap(80); B.ground(500);
+    B.checkpoint(B.x() - 450); B.sign(B.x() - 300, 'A stranger asks where you go to school. Choose a door.');
+    B.gate({ labels: ['Tell them — seems nice', 'Make up a fake school', 'Block, report, tell an adult'] });
+    return B.done();
+  },
+  // 8 — Encryption Vault
+  function () {
+    const B = builder();
+    B.ground(500); B.sign(130, 'The vault code is ENCRYPTED with a shift of 3. Shift each letter BACK 3 to read it:  ' + CONTENT.stages[7].cipher, { wide: true }); B.checkpoint(330);
+    B.gap(90); B.plat(120, 450); B.gap(90); B.plat(120, 400); B.gap(90);
+    B.ground(400); B.lava(100); B.ground(200); B.gap(80); B.plat(120, 440); B.gap(80); B.ground(400);
+    B.checkpoint(B.x() - 350); B.sign(B.x() - 260, 'Reminder — ' + CONTENT.stages[7].cipher + '  (shift back 3). Which color is the code?');
+    B.gate({ labels: CONTENT.stages[7].gate.options });
+    return B.done();
+  }
+];
+
+function buildLevel(i) { _id = 0; return LEVELS[i](); }
+
+/* ===================== GAME STATE ===================== */
+const G = {
+  state: 'title', stage: 0, L: null, p: null, cp: null, cam: 0, tick: 0, scale: 1,
+  deaths: 0, time: 0, tokens: 0, stageDeaths: 0, stageTime: 0, stageTokens: 0,
+  deadTimer: 0, deadModal: null, clearTimer: 0, clearDoor: null,
+  particles: [], flash: 0, laterCount: 0, toastTimer: 0, noKeyCooldown: 0,
+  save: null, actions: {}, dom: null, overlayOpenedAt: 0
+};
+const input = { left: false, right: false, jumpBuffer: 0, jumpHeld: false };
+
+function newPlayer(x, y) {
+  return { x, y, w: PH.PW, h: PH.PHH, vx: 0, vy: 0, onGround: false, coyote: 0, face: 1, standing: null, hasKey: false,
+    dwell: 0, dwellTarget: null, deathHint: null, hintTimer: 0, squash: 0 };
+}
+function overlap(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+function solids(L) {
+  const out = [];
+  for (const p of L.plats) {
+    if (p.kind === 'kill') continue;
+    if (p.kind === 'crumble' && p.state === 'gone') continue;
+    if (p.kind === 'barrier' && p.openBarrier) continue;
+    out.push(p);
+  }
+  return out;
+}
+function movingY(p, tick) {
+  if (p.elevator) return p.active ? p.baseY + p.range * Math.cos((tick - (p.t0 || 0)) * p.speed) : p.baseY + p.range;
+  return p.baseY + Math.sin(tick * p.speed + p.phase) * p.range;
+}
+
+/* ===================== CORE STEP (pure: no DOM) ===================== */
+function physicsStep(G, input, hooks) {
+  const L = G.L, p = G.p; hooks = hooks || {};
+  G.tick++;
+  // moving platforms
+  for (const q of L.plats) if (q.kind === 'moving') { q.prevY = q.y; q.y = movingY(q, G.tick); }
+  if (p.standing && p.standing.kind === 'moving') p.y += p.standing.y - p.standing.prevY;
+  // crumbling planks
+  for (const q of L.plats) if (q.kind === 'crumble' && q.phish) {
+    if (q.state === 'shaking' && --q.timer <= 0) { q.state = 'gone'; q.timer = 150; if (p.standing === q) { p.deathHint = 'phish'; p.hintTimer = 150; } }
+    else if (q.state === 'gone' && --q.timer <= 0) q.state = 'ok';
+  }
+  // input
+  p.vx = (input.right ? PH.SPEED : 0) - (input.left ? PH.SPEED : 0);
+  if (p.vx) p.face = p.vx > 0 ? 1 : -1;
+  // interactables (doors / panel): jump = enter, or stand still to dwell
+  const target = findInteractable(L, p);
+  if (target && target !== p.dwellTarget) { p.dwell = 0; }
+  p.dwellTarget = target;
+  let interact = false;
+  if (target) {
+    if (input.jumpBuffer > 0 && p.onGround) { interact = true; input.jumpBuffer = 0; }
+    if (p.vx === 0 && p.onGround) p.dwell = Math.min(p.dwell + 1, 999); else p.dwell = 0;
+  } else p.dwell = 0;
+  // jump
+  if (input.jumpBuffer > 0 && (p.onGround || p.coyote > 0)) { p.vy = -PH.JUMP; p.onGround = false; p.coyote = 0; input.jumpBuffer = 0; p.squash = -6; }
+  if (input.jumpBuffer > 0) input.jumpBuffer--;
+  if (!input.jumpHeld && p.vy < -4) p.vy = -4; // release early = short hop
+  p.vy = Math.min(p.vy + PH.GRAV, PH.MAXFALL);
+  const S = solids(L);
+  p.x += p.vx;
+  for (const s of S) if (overlap(p, s)) { if (p.vx > 0) p.x = s.x - p.w; else if (p.vx < 0) p.x = s.x + s.w; }
+  const wasGround = p.onGround;
+  p.y += p.vy; p.onGround = false; p.standing = null;
+  for (const s of S) if (overlap(p, s)) {
+    if (p.vy > 0) { p.y = s.y - p.h; p.vy = 0; p.onGround = true; p.standing = s; }
+    else if (p.vy < 0) { p.y = s.y + s.h; p.vy = 0; }
+  }
+  if (p.onGround && !wasGround) p.squash = 6;
+  if (p.squash) p.squash += p.squash > 0 ? -1 : 1;
+  if (p.x < 0) p.x = 0; if (p.x + p.w > L.w) p.x = L.w - p.w;
+  if (p.onGround) p.coyote = PH.COYOTE; else if (p.coyote > 0) p.coyote--;
+  if (p.standing && p.standing.kind === 'crumble' && p.standing.phish && p.standing.state === 'ok') { p.standing.state = 'shaking'; p.standing.timer = 21; }
+  if (p.hintTimer > 0 && --p.hintTimer === 0) p.deathHint = null;
+  // hazards
+  for (const h of L.hazards) if (overlap(p, h)) return hooks.die && hooks.die('lava');
+  for (const q of L.plats) if (q.kind === 'kill' && overlap({ x: p.x - 1, y: p.y - 1, w: p.w + 2, h: p.h + 2 }, q)) return hooks.die && hooks.die('malware');
+  if (p.y > PH.H + 80) return hooks.die && hooks.die(p.deathHint === 'phish' ? 'phish' : 'void');
+  // checkpoints
+  const cxNow = p.x + p.w / 2, cxPrev = p.prevCx == null ? cxNow : p.prevCx; p.prevCx = cxNow;
+  for (const c of L.checkpoints) if (!c.hit && ((cxPrev < c.x && cxNow >= c.x) || Math.abs(cxNow - c.x) < 20) && p.y + p.h > c.y - 150 && p.y + p.h <= c.y + 2) { c.hit = true; G.cp = { x: c.x - p.w / 2, y: c.y - p.h }; hooks.checkpoint && hooks.checkpoint(c); }
+  // items
+  for (const it of L.items) if (!it.got && overlap(p, { x: it.x - it.r, y: it.y - it.r, w: it.r * 2, h: it.r * 2 })) {
+    if (it.kind === 'private') { return hooks.die && hooks.die('private', it); }
+    it.got = true; if (it.kind === 'key') p.hasKey = true; else { G.tokens++; G.stageTokens++; }
+    hooks.collect && hooks.collect(it);
+  }
+  // NPC trigger
+  for (const n of L.npcs) { if (n.cooldown > 0) n.cooldown--; else if (!n.resolved && Math.abs(p.x + p.w / 2 - n.x) < 70 && p.onGround) { hooks.chat && hooks.chat(n); } }
+  if (interact && target) hooks.interact && hooks.interact(target);
+  return null;
+}
+function findInteractable(L, p) {
+  if (L.gate) for (const d of L.gate.doors) if (overlap(p, d)) return d;
+  for (const mg of L.minigates) if (!mg.solved) for (const d of mg.doors) if (overlap(p, d)) return d;
+  for (const pn of L.panels) if (!pn.used && overlap(p, { x: pn.x - 34, y: pn.y - 60, w: 68, h: 60 })) return pn;
+  return null;
+}
+
+/* ===================== BROWSER GLUE ===================== */
+function boot() {
+  const $ = (id) => document.getElementById(id);
+  const dom = G.dom = { stage: $('stage'), canvas: $('game'), hud: $('hud'), hudStage: $('hud-stage'), hudGoal: $('hud-goal'), hudItems: $('hud-items'), hudFalls: $('hud-falls'), hudTime: $('hud-time'), hudMenu: $('hud-menu'), toast: $('toast'), toastText: $('toast-text'), touch: $('touch'), overlay: $('overlay'), card: $('card'), printdoc: $('printdoc') };
+  const ctx = dom.canvas.getContext('2d');
+  G.save = loadSave();
+
+  /* ---- sizing ---- */
+  function fit() {
+    const s = Math.min(window.innerWidth / PH.W, window.innerHeight / PH.H);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    dom.stage.style.transform = 'scale(' + s + ')';
+    dom.canvas.width = Math.round(PH.W * s * dpr); dom.canvas.height = Math.round(PH.H * s * dpr);
+    G.scale = s * dpr;
+  }
+  window.addEventListener('resize', fit); fit();
+  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  if (coarse || 'ontouchstart' in window) dom.touch.classList.add('on');
+
+  /* ---- input ---- */
+  const keyMap = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right', ArrowUp: 'jump', w: 'jump', W: 'jump', ' ': 'jump', Enter: 'jump', e: 'jump', E: 'jump' };
+  window.addEventListener('keydown', (e) => {
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON')) return;
+    const k = keyMap[e.key]; if (!k) return;
+    if (G.state !== 'playing') { if (e.key === ' ' || e.key.startsWith('Arrow')) e.preventDefault(); return; }
+    e.preventDefault();
+    if (k === 'jump') { if (!e.repeat) { input.jumpBuffer = 8; input.jumpHeld = true; } }
+    else input[k] = true;
+  });
+  window.addEventListener('keyup', (e) => { const k = keyMap[e.key]; if (!k) return; if (k === 'jump') input.jumpHeld = false; else input[k] = false; });
+  window.addEventListener('blur', () => { input.left = input.right = false; });
+  function bindTouch(el, down, up) {
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.classList.add('down'); down(); try { el.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } });
+    const off = (e) => { e.preventDefault(); el.classList.remove('down'); up(); };
+    el.addEventListener('pointerup', off); el.addEventListener('pointercancel', off); el.addEventListener('lostpointercapture', off);
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  bindTouch($('t-left'), () => { input.left = true; }, () => { input.left = false; });
+  bindTouch($('t-right'), () => { input.right = true; }, () => { input.right = false; });
+  bindTouch($('t-jump'), () => { input.jumpBuffer = 8; input.jumpHeld = true; }, () => { input.jumpHeld = false; });
+  dom.hudMenu.addEventListener('click', () => { if (G.state === 'playing') { showTitle(true); } });
+  dom.card.addEventListener('click', (e) => {
+    if (performance.now() - G.overlayOpenedAt < 250) return; // ignore the key-release "click" that opened the overlay
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const fn = G.actions[b.getAttribute('data-act')]; if (fn) fn(b);
+  });
+  dom.card.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || performance.now() - G.overlayOpenedAt < 400) return;
+    if (e.target.tagName === 'INPUT') { const fn = G.actions.enter; if (fn) fn(); return; }
+    if (e.target === dom.card && !dom.card.querySelector('.opts')) { const b = dom.card.querySelector('.btn.primary'); if (b) { e.preventDefault(); b.click(); } }
+  });
+
+  /* ---- overlays ---- */
+  function showOverlay(html, actions, focusSel) {
+    G.actions = actions || {}; dom.card.innerHTML = html; dom.overlay.classList.add('show');
+    if (G.state === 'playing' || G.state === 'dead' || G.state === 'clearing') G.prevState = G.state;
+    G.state = 'overlay'; input.left = input.right = false; input.jumpBuffer = 0; G.overlayOpenedAt = performance.now();
+    const f = focusSel ? dom.card.querySelector(focusSel) : dom.card; if (f) setTimeout(() => f.focus(), 30);
+  }
+  function hideOverlay(nextState) { dom.overlay.classList.remove('show'); dom.card.innerHTML = ''; G.actions = {}; input.jumpBuffer = 0; input.left = input.right = false; G.state = nextState || 'playing'; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function toast(text, ms) {
+    dom.toastText.textContent = text; dom.toast.classList.add('show');
+    clearTimeout(G.toastTimer); G.toastTimer = setTimeout(() => dom.toast.classList.remove('show'), ms || 2400);
+  }
+  function fmt(t) { t = Math.floor(t); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+
+  function showTitle(paused) {
+    const s = G.save; const hall = s.hall || [];
+    let html = '<span class="kicker">Free browser game · ' + esc(CONTENT.credit) + '</span><h1>🛡 ' + esc(CONTENT.title) + '</h1><p class="muted">' + esc(CONTENT.tagline) + '</p>';
+    html += '<div class="controls"><kbd>← →</kbd><span>move (or A / D)</span><kbd>SPACE</kbd><span>jump (or ↑ / W)</span><kbd>SPACE in a door</kbd><span>enters it — read the labels first!</span><kbd>📱</kbd><span>tablet: use the on-screen buttons</span></div>';
+    html += '<div class="btns">';
+    if (paused) html += '<button class="btn primary block" data-act="resume">▶ Resume stage ' + (G.stage + 1) + '</button>';
+    else if (s.run && s.run.stage > 0 && s.run.stage < CONTENT.stages.length) html += '<button class="btn primary block" data-act="continue">▶ Continue — stage ' + (s.run.stage + 1) + ': ' + esc(CONTENT.stages[s.run.stage].name) + '</button>';
+    html += '<button class="btn' + (paused || (s.run && s.run.stage > 0) ? '' : ' primary') + '" data-act="new">' + (paused ? '↺ Restart from stage 1' : '▶ Start') + '</button>';
+    html += '<button class="btn" data-act="select">Stage select</button><button class="btn" data-act="guide">Facilitator guide</button></div>';
+    if (hall.length) {
+      html += '<h3>Hall of Cyber Defenders</h3><table class="lb"><tr><th>#</th><th>Name</th><th>Time</th><th>Falls</th></tr>';
+      hall.forEach((h, i) => { html += '<tr><td>' + (i + 1) + '</td><td>' + esc(h.name) + '</td><td>' + fmt(h.time) + '</td><td>' + h.deaths + '</td></tr>'; });
+      html += '</table>';
+    }
+    if (!paused) G.state = 'title';
+    showOverlay(html, {
+      resume: () => hideOverlay('playing'),
+      continue: () => { const r = s.run; G.deaths = r.deaths; G.time = r.time; G.tokens = r.tokens; startStage(r.stage); },
+      new: () => { G.deaths = 0; G.time = 0; G.tokens = 0; s.run = { stage: 0, deaths: 0, time: 0, tokens: 0 }; writeSave(s); startStage(0); },
+      select: showSelect, guide: showGuide
+    });
+  }
+  function showSelect() {
+    const unlocked = G.save.unlocked || 0;
+    let html = '<h2>Stage select</h2><p class="muted">Finish a stage to unlock the next one. Replaying is a great way to review.</p><div class="grid">';
+    CONTENT.stages.forEach((st, i) => { const locked = i > unlocked; html += '<button class="btn" data-act="go" data-i="' + i + '"' + (locked ? ' disabled' : '') + '>' + (locked ? '🔒 ' : '') + (i + 1) + '. ' + esc(st.name) + '<small>' + esc(st.concept) + '</small></button>'; });
+    html += '</div><div class="btns"><button class="btn ghost" data-act="back">← Back</button></div>';
+    showOverlay(html, { go: (b) => { G.deaths = 0; G.time = 0; G.tokens = 0; startStage(+b.getAttribute('data-i')); }, back: () => showTitle(false) });
+  }
+  function showGuide() {
+    let html = '<div class="guide"><span class="kicker">For parents & teachers</span><h2>Facilitator guide</h2><p class="muted">You do not need to play. After each stage, ask the debrief question, then try the at-home activity. About 10 minutes per stage.</p>';
+    CONTENT.stages.forEach((st, i) => { html += '<div class="stage"><b>Stage ' + (i + 1) + ' — ' + esc(st.name) + '</b> · ' + esc(st.concept) + '<p><b>Ask:</b> ' + esc(st.debrief) + '</p><p><b>Try at home:</b> ' + esc(st.home) + '</p></div>'; });
+    html += '<div class="btns"><button class="btn primary" data-act="print">🖨 Print guide</button><button class="btn ghost" data-act="back">← Back</button></div></div>';
+    showOverlay(html, { back: () => showTitle(false), print: () => printGuide() });
+  }
+  function printGuide() {
+    let h = '<div class="frame"><h1>CYBER DEFENDER OBBY</h1><p>Facilitator guide — ' + esc(CONTENT.credit) + '</p>';
+    CONTENT.stages.forEach((st, i) => { h += '<div class="pstage"><h2>Stage ' + (i + 1) + ': ' + esc(st.name) + ' <small>(' + esc(st.concept) + ')</small></h2><p><b>Objective:</b> ' + esc(st.objective) + '</p><p><b>Key fact:</b> ' + esc(st.fact) + '</p><p><b>Ask:</b> ' + esc(st.debrief) + '</p><p><b>Try at home:</b> ' + esc(st.home) + '</p></div>'; });
+    dom.printdoc.innerHTML = h + '</div>'; window.print();
+  }
+  function showIntro(i) {
+    const st = CONTENT.stages[i];
+    const html = '<span class="kicker">Stage ' + (i + 1) + ' of ' + CONTENT.stages.length + '</span><h2>' + esc(st.name) + '</h2><p class="muted">' + esc(st.concept) + '</p><h3>Your mission</h3><p>' + esc(st.objective) + '</p><div class="btns"><button class="btn primary" data-act="go">Go! ▶</button><button class="btn ghost" data-act="menu">Menu</button></div>';
+    showOverlay(html, { go: () => hideOverlay('playing'), menu: () => showTitle(false) });
+  }
+  function showTip(kicker, title, body, btnLabel, onClose) {
+    const html = '<span class="kicker bad">' + esc(kicker) + '</span><h2>' + esc(title) + '</h2><p>' + esc(body) + '</p><div class="btns"><button class="btn primary" data-act="ok">' + esc(btnLabel || 'Try again') + '</button></div>';
+    showOverlay(html, { ok: () => { hideOverlay('playing'); onClose && onClose(); } });
+  }
+  function showFactCard() {
+    const i = G.stage, st = CONTENT.stages[i], last = i === CONTENT.stages.length - 1;
+    const s = G.save; s.unlocked = Math.max(s.unlocked || 0, i + 1); s.run = { stage: i + 1, deaths: G.deaths, time: G.time, tokens: G.tokens }; writeSave(s);
+    let html = '<span class="kicker good">Stage ' + (i + 1) + ' clear!</span><h2>' + esc(st.name) + '</h2><h3>' + esc(st.concept) + '</h3><p>' + esc(st.fact) + '</p>';
+    html += '<div class="stats"><div class="stat"><b>' + fmt(G.stageTime) + '</b><span>stage time</span></div><div class="stat"><b>' + G.stageDeaths + '</b><span>falls</span></div>' + (G.stageTokens ? '<div class="stat"><b>' + G.stageTokens + '</b><span>safe shares</span></div>' : '') + '</div>';
+    html += '<div class="btns"><button class="btn primary" data-act="next">' + (last ? '🏆 Claim your badge' : 'Next stage ▶') + '</button><button class="btn ghost" data-act="menu">Menu</button></div>';
+    showOverlay(html, { next: () => last ? showWin() : startStage(i + 1), menu: () => showTitle(false) });
+  }
+  function showWin() {
+    G.state = 'won'; const s = G.save; s.unlocked = CONTENT.stages.length; s.run = { stage: 0, deaths: 0, time: 0, tokens: 0 }; writeSave(s);
+    let html = '<span class="kicker good">All 8 stages complete</span><h1>🏆 ' + esc(CONTENT.win.title) + '</h1><p>' + esc(CONTENT.win.body) + '</p>';
+    html += '<div class="stats"><div class="stat"><b>' + fmt(G.time) + '</b><span>total time</span></div><div class="stat"><b>' + G.deaths + '</b><span>falls</span></div><div class="stat"><b>' + G.tokens + '</b><span>safe shares</span></div></div>';
+    html += '<h3>Add your name to the Hall of Cyber Defenders</h3><input class="name" id="hall-name" maxlength="24" placeholder="Your first name or nickname" aria-label="Your name">';
+    html += '<div class="btns"><button class="btn primary" data-act="save">Save & print certificate</button><button class="btn" data-act="again">Play again</button><button class="btn ghost" data-act="menu">Menu</button></div>';
+    showOverlay(html, {
+      save: () => { const n = (document.getElementById('hall-name').value || 'Cyber Defender').trim().slice(0, 24); addHall(n); printCertificate(n); showTitle(false); },
+      enter: () => G.actions.save(),
+      again: () => { G.deaths = 0; G.time = 0; G.tokens = 0; startStage(0); },
+      menu: () => showTitle(false)
+    }, '#hall-name');
+  }
+  function addHall(name) { const s = G.save; s.hall = (s.hall || []).concat([{ name, time: Math.round(G.time), deaths: G.deaths, date: new Date().toISOString().slice(0, 10) }]).sort((a, b) => a.time - b.time || a.deaths - b.deaths).slice(0, 5); writeSave(s); }
+  function printCertificate(name) {
+    const badges = CONTENT.stages.map((st) => '<span>' + esc(st.concept) + '</span>').join('');
+    dom.printdoc.innerHTML = '<div class="frame cert"><h1>CYBER DEFENDER</h1><p>Certificate of Achievement</p><h2>This certifies that</h2><div class="name">' + esc(name) + '</div><p>completed all 8 stages of the <b>' + esc(CONTENT.title) + '</b> and demonstrated knowledge of</p><div class="badges">' + badges + '</div><p class="small">Time ' + fmt(G.time) + ' · Falls ' + G.deaths + ' · Safe shares ' + G.tokens + '</p><p>' + new Date().toLocaleDateString() + ' · ' + esc(CONTENT.credit) + '</p></div>';
+    setTimeout(() => window.print(), 50);
+  }
+
+  /* ---- stage-specific overlays ---- */
+  function openKeypad() {
+    const st = CONTENT.stages[G.stage], g = st.gate;
+    let html = '<span class="kicker">' + esc(CONTENT.keypad.title) + '</span><h2>🔑 Key card accepted — factor 1 of 2</h2><p>' + esc(g.question) + '</p><div class="opts">';
+    g.options.forEach((o, i) => { html += '<button class="btn" data-act="pick" data-i="' + i + '">' + esc(o) + '</button>'; });
+    html += '</div>';
+    showOverlay(html, { pick: (b) => { const i = +b.getAttribute('data-i'); if (i === g.answer) { hideOverlay('playing'); stageClear(G.L.gate.doors[0]); } else { hideOverlay('playing'); wrongAnswer(g.tip); } } });
+  }
+  function openUpdate(panel) {
+    const U = CONTENT.update;
+    const render = (msg) => {
+      let html = '<span class="kicker">System message</span><h2>⬇ ' + esc(U.title) + '</h2><p>' + esc(U.body) + '</p>' + (msg ? '<p class="muted">⚠ ' + esc(msg) + '</p>' : '');
+      html += '<div class="btns"><button class="btn primary" data-act="yes">' + esc(U.yes) + '</button><button class="btn" data-act="later">' + esc(U.later) + '</button><button class="btn ghost" data-act="walk">Walk away</button></div>';
+      showOverlay(html, {
+        yes: () => { dom.card.innerHTML = '<h2>⬇ ' + esc(U.installing) + '</h2><div class="progress"><i></i></div><p class="muted">Closing the hole before the hackers use it…</p>'; setTimeout(() => { panel.used = true; const el = G.L.plats.find((q) => q.elevator); el.active = true; el.t0 = G.tick; hideOverlay('playing'); toast(U.done, 3000); }, 1700); },
+        later: () => { const m = U.laterMsgs[Math.min(G.laterCount++, U.laterMsgs.length - 1)]; render(m); },
+        walk: () => hideOverlay('playing')
+      });
+    };
+    render(null);
+  }
+  function openChat(npc) {
+    const C = CONTENT.chat;
+    let html = '<span class="kicker">Game chat</span><h2>💬 ' + esc(C.npc) + ' wants to chat</h2><div class="chat">';
+    C.messages.forEach((m) => { html += '<div class="bubble them"><span class="who">' + esc(C.npc) + '</span>' + esc(m) + '</div>'; });
+    html += '</div><p class="muted">How do you reply?</p><div class="opts">';
+    C.options.forEach((o, i) => { html += '<button class="btn" data-act="pick" data-i="' + i + '">' + esc(o) + '</button>'; });
+    html += '</div>';
+    showOverlay(html, { pick: (b) => {
+      const i = +b.getAttribute('data-i');
+      if (i === C.answer) { npc.resolved = true; for (const q of G.L.plats) if (q.kind === 'barrier') q.openBarrier = true; hideOverlay('playing'); toast(C.success, 3200); burst(820, 400, '#3ddc84', 40); }
+      else { npc.cooldown = 120; showTip('Red flags!', 'Not the safest reply', C.wrongTip, 'Try again'); }
+    } });
+  }
+
+  /* ---- stage flow ---- */
+  function startStage(i) {
+    G.stage = i; G.L = buildLevel(i); G.p = newPlayer(G.L.spawn.x, G.L.spawn.y); G.cp = { x: G.L.spawn.x, y: G.L.spawn.y };
+    G.stageDeaths = 0; G.stageTime = 0; G.stageTokens = 0; G.laterCount = 0; G.particles = []; G.cam = 0; G.deadModal = null;
+    for (const q of G.L.plats) if (q.kind === 'moving') { q.y = movingY(q, G.tick); q.prevY = q.y; }
+    const st = CONTENT.stages[i];
+    dom.hudStage.textContent = (i + 1) + '/' + CONTENT.stages.length + ' · ' + st.name; dom.hudGoal.textContent = st.objective; updateHud();
+    showIntro(i);
+  }
+  function die(reason, item) {
+    if (G.state !== 'playing') return;
+    G.state = 'dead'; G.deadTimer = 42; G.deaths++; G.stageDeaths++; G.flash = 1;
+    burst(G.p.x + G.p.w / 2, G.p.y + G.p.h / 2, reason === 'malware' ? '#ff5470' : '#38e1ff', 26);
+    const st = CONTENT.stages[G.stage];
+    G.deadModal = null;
+    if (reason === 'private') G.deadModal = ['Oversharing!', 'You shared: ' + item.label, st.privateTip];
+    else if (reason === 'malware') toast(st.malwareTip || '☠ Malware!', 3000);
+    else if (reason === 'phish') toast('🎣 That plank was PHISHING — it rushed you. Read before you step!', 3000);
+    else if (reason === 'lava') toast('🔥 Ouch! Back to the checkpoint.', 1600);
+    else if (reason === 'void') toast('💨 Whoops! Back to the checkpoint.', 1400);
+    updateHud();
+  }
+  function respawn() {
+    const p = G.p; p.x = G.cp.x; p.y = G.cp.y; p.vx = p.vy = 0; p.standing = null; p.dwell = 0; p.deathHint = null; p.prevCx = null;
+    for (const q of G.L.plats) if (q.kind === 'crumble') { q.state = 'ok'; q.timer = 0; }
+    G.state = 'playing';
+  }
+  function wrongAnswer(tip) {
+    if (G.state !== 'playing') return;
+    G.state = 'dead'; G.deadTimer = 30; G.deaths++; G.stageDeaths++; G.flash = 1; G.deadModal = ['Not quite', 'Wrong door!', tip];
+    burst(G.p.x + G.p.w / 2, G.p.y + G.p.h / 2, '#ff5470', 20); updateHud();
+  }
+  function stageClear(door) { G.state = 'clearing'; G.clearTimer = 70; G.clearDoor = door; burst(door.x + door.w / 2, door.y + 20, '#ffcc4d', 60); }
+  function onInteract(t) {
+    if (G.L.panels.indexOf(t) >= 0) return openUpdate(t);
+    if (t.mg) {
+      if (t.ok) { t.mg.solved = true; t.mg.barrier.openBarrier = true; t.open = 1; burst(t.x + t.w / 2, t.y + 30, '#3ddc84', 30); toast('✅ Real message — the way opens!', 2000); }
+      else wrongAnswer(t.mg.tip);
+      return;
+    }
+    const gate = G.L.gate;
+    if (gate.type === 'keypad') { if (!G.p.hasKey) { if (G.noKeyCooldown <= 0) { toast(CONTENT.keypad.noKeyToast, 2600); G.noKeyCooldown = 120; } G.p.dwell = 0; return; } return openKeypad(); }
+    if (t.i === CONTENT.stages[G.stage].gate.answer) stageClear(t); else wrongAnswer(CONTENT.stages[G.stage].gate.tip);
+  }
+  function burst(x, y, color, n) { for (let i = 0; i < n; i++) G.particles.push({ x, y, vx: (Math.random() - 0.5) * 9, vy: (Math.random() - 0.9) * 9, life: 40 + Math.random() * 30, color, r: 2 + Math.random() * 3 }); }
+  function updateHud() {
+    const p = G.p; let items = '';
+    if (p && p.hasKey) items += '🔑 ';
+    const total = G.L ? G.L.items.filter((it) => it.kind === 'safe').length : 0;
+    if (total) items += '⭐ ' + G.stageTokens + '/' + total;
+    dom.hudItems.textContent = items.trim(); dom.hudItems.style.display = items ? '' : 'none';
+    dom.hudFalls.textContent = '💥 ' + G.deaths; dom.hudTime.textContent = '⏱ ' + fmt(G.time);
+  }
+
+  /* ---- main loop ---- */
+  const hooks = { die, interact: onInteract, chat: openChat, collect: (it) => { toast(it.kind === 'key' ? '🔑 Key card! Now find the vault keypad.' : '⭐ Safe to share: ' + it.label, 1800); burst(it.x, it.y, '#ffcc4d', 14); updateHud(); }, checkpoint: () => toast('🚩 Checkpoint!', 1000) };
+  let last = performance.now(), acc = 0, hudTick = 0;
+  function update() {
+    if (G.noKeyCooldown > 0) G.noKeyCooldown--;
+    if (G.state === 'playing') { G.time += PH.STEP; G.stageTime += PH.STEP; physicsStep(G, input, hooks); }
+    else if (G.state === 'dead') { if (--G.deadTimer <= 0) { if (G.deadModal) { const m = G.deadModal; G.deadModal = null; respawn(); showTip(m[0], m[1], m[2], 'Try again'); } else respawn(); } }
+    else if (G.state === 'clearing') { G.clearDoor.open = Math.min(1, G.clearDoor.open + 0.02); if (--G.clearTimer <= 0) showFactCard(); }
+    for (const q of G.particles) { q.x += q.vx; q.y += q.vy; q.vy += 0.25; q.life--; }
+    G.particles = G.particles.filter((q) => q.life > 0);
+    if (G.flash > 0) G.flash -= 0.05;
+    if (G.L && G.p) { const target = Math.max(0, Math.min(G.L.w - PH.W, G.p.x - PH.W * 0.38)); G.cam += (target - G.cam) * 0.15; }
+    if (++hudTick % 30 === 0 && G.state === 'playing') updateHud();
+  }
+  function frame(now) {
+    let dt = (now - last) / 1000; last = now; if (dt > 0.25) dt = 0.25; acc += dt;
+    while (acc >= PH.STEP) { update(); acc -= PH.STEP; }
+    render(ctx, G);
+    requestAnimationFrame(frame);
+  }
+  showTitle(false);
+  requestAnimationFrame(frame);
+}
+
+/* ===================== SAVE ===================== */
+const SAVE_KEY = 'cyber-defender-obby-v1';
+function loadSave() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || '{}'); return { unlocked: s.unlocked || 0, hall: s.hall || [], run: s.run || null }; } catch (_) { return { unlocked: 0, hall: [], run: null }; } }
+function writeSave(s) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (_) { /* private mode: ignore */ } }
+
+/* ===================== RENDER ===================== */
+const COLORS = { plat: '#1b2d52', platTop: '#38e1ff', platEdge: '#2a4478', ground: '#152547', tile: '#22386a', safe: '#136a6e', safeTop: '#3ddc84', kill: '#4a1020', killEdge: '#ff5470', gold: '#ffcc4d', text: '#e8f0ff', muted: '#9fb0d0' };
+
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+function wrapText(ctx, text, maxW) {
+  const words = String(text).split(/\s+/), lines = []; let cur = '';
+  for (const w of words) { const t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width <= maxW || !cur) cur = t; else { lines.push(cur); cur = w; } }
+  if (cur) lines.push(cur); return lines;
+}
+function fitFont(ctx, text, maxW, px, minPx) {
+  for (let s = px; s >= minPx; s--) { ctx.font = 'bold ' + s + 'px system-ui, sans-serif'; if (ctx.measureText(text).width <= maxW) return s; }
+  return minPx;
+}
+function pill(ctx, text, cx, cy, opts) {
+  opts = opts || {}; const px = opts.px || 11, maxW = opts.maxW || 150, maxLines = opts.maxLines || 3;
+  let size = px; ctx.font = 'bold ' + size + 'px system-ui, sans-serif';
+  let lines = wrapText(ctx, text, maxW);
+  while (size > 8 && (lines.length > maxLines || lines.some((l) => ctx.measureText(l).width > maxW))) { size--; ctx.font = 'bold ' + size + 'px system-ui, sans-serif'; lines = wrapText(ctx, text, maxW); }
+  const lh = size + 3, w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 14, h = lines.length * lh + 6;
+  const x = cx - w / 2, y = cy - h / 2;
+  ctx.fillStyle = opts.bg || 'rgba(6,10,24,0.88)'; roundRect(ctx, x, y, w, h, 7); ctx.fill();
+  if (opts.border) { ctx.strokeStyle = opts.border; ctx.lineWidth = 1; ctx.stroke(); }
+  ctx.fillStyle = opts.color || COLORS.text; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  lines.forEach((l, i) => ctx.fillText(l, cx, y + 3 + lh / 2 + i * lh));
+  return { x, y, w, h };
+}
+
+function render(ctx, G) {
+  const W = PH.W, H = PH.H, t = G.tick;
+  ctx.setTransform(G.scale, 0, 0, G.scale, 0, 0);
+  const grad = ctx.createLinearGradient(0, 0, 0, H); grad.addColorStop(0, '#0b1533'); grad.addColorStop(1, '#050815');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+  drawBackdrop(ctx, G);
+  if (!G.L || !G.p) return;
+  const L = G.L, p = G.p, cam = Math.round(G.cam);
+  ctx.save(); ctx.translate(-cam, 0);
+  const vis = (x, w) => x + w > cam - 40 && x < cam + W + 40;
+  // hazards
+  for (const h of L.hazards) if (vis(h.x, h.w)) drawLava(ctx, h, t);
+  // gate walls
+  for (const mg of L.minigates) if (vis(mg.x, mg.w)) drawMinigate(ctx, mg);
+  if (L.gate) drawGate(ctx, L, G);
+  // platforms
+  for (const q of L.plats) if (vis(q.x, q.w)) drawPlat(ctx, q, t, p);
+  // checkpoints, signs, panels, npcs, items
+  for (const c of L.checkpoints) if (vis(c.x - 10, 40)) drawCheckpoint(ctx, c, t);
+  for (const s of L.signs) if (vis(s.x - 20, 40)) drawSignPost(ctx, s);
+  for (const pn of L.panels) if (vis(pn.x - 30, 60)) drawPanel(ctx, pn, t);
+  for (const n of L.npcs) if (vis(n.x - 30, 60)) drawNpc(ctx, n, t);
+  for (const it of L.items) if (!it.got && vis(it.x - 20, 40)) drawItem(ctx, it, t);
+  // player
+  if (G.state !== 'dead') drawPlayer(ctx, p, t);
+  // particles
+  for (const q of G.particles) { ctx.globalAlpha = Math.max(0, Math.min(1, q.life / 30)); ctx.fillStyle = q.color; ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  // sign bubbles (top layer)
+  for (const s of L.signs) if (Math.abs(p.x + p.w / 2 - s.x) < 120) drawBubble(ctx, s, cam);
+  // 'press jump' hint when standing in a door or at a panel
+  if (p.dwellTarget && p.dwell > 12 && G.state === 'playing') {
+    const isPanel = L.panels.indexOf(p.dwellTarget) >= 0;
+    pill(ctx, isPanel ? 'Press JUMP ⤒ to open the panel' : 'Press JUMP ⤒ to enter this door', p.x + p.w / 2, p.y - 22, { px: 12, border: COLORS.gold, bg: 'rgba(20,28,60,0.98)', maxW: 200 });
+  }
+  ctx.restore();
+  if (G.flash > 0) { ctx.fillStyle = 'rgba(255,84,112,' + (G.flash * 0.45).toFixed(3) + ')'; ctx.fillRect(0, 0, W, H); }
+}
+
+function drawBackdrop(ctx, G) {
+  const W = PH.W, H = PH.H, cam = G.cam || 0, t = G.tick;
+  // far grid
+  ctx.strokeStyle = 'rgba(56,225,255,0.07)'; ctx.lineWidth = 1;
+  const off = -(cam * 0.25) % 80;
+  ctx.beginPath();
+  for (let x = off; x < W; x += 80) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = 60; y < H; y += 80) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  // server towers silhouettes (parallax 0.5)
+  const off2 = -(cam * 0.5) % 420;
+  for (let x = off2 - 420; x < W + 420; x += 420) {
+    ctx.fillStyle = 'rgba(20,32,70,0.9)'; ctx.fillRect(x + 40, 260, 90, 300); ctx.fillRect(x + 170, 320, 60, 240); ctx.fillRect(x + 260, 220, 110, 340);
+    for (let i = 0; i < 6; i++) { const on = ((t / 20 + i + x / 100) | 0) % 3 === 0; ctx.fillStyle = on ? 'rgba(61,220,132,0.55)' : 'rgba(56,225,255,0.18)'; ctx.fillRect(x + 54, 280 + i * 40, 10, 6); ctx.fillRect(x + 280, 240 + i * 46, 14, 6); }
+  }
+  // drifting data bits
+  ctx.fillStyle = 'rgba(56,225,255,0.35)';
+  for (let i = 0; i < 26; i++) { const x = ((i * 137 + t * (0.3 + (i % 3) * 0.2) - cam * 0.15) % (W + 60)) - 30; const y = (i * 71) % (H - 120) + 20; ctx.fillRect(x, y, 3, 3); }
+}
+
+function drawLava(ctx, h, t) {
+  const g = ctx.createLinearGradient(0, h.y, 0, h.y + h.h); g.addColorStop(0, '#ff6a3d'); g.addColorStop(0.4, '#e0245e'); g.addColorStop(1, '#5a0f3a');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.moveTo(h.x, h.y + 40);
+  for (let x = h.x; x <= h.x + h.w; x += 8) ctx.lineTo(x, h.y + Math.sin(x / 18 + t / 9) * 3);
+  ctx.lineTo(h.x + h.w, h.y + h.h); ctx.lineTo(h.x, h.y + h.h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = 'rgba(255,220,120,0.7)';
+  for (let i = 0; i < h.w / 40; i++) { const bx = h.x + 20 + i * 40, ph = (t / 30 + i) % 1; ctx.beginPath(); ctx.arc(bx, h.y + 30 - ph * 26, 3 + (1 - ph) * 3, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = 'bold 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let x = h.x + h.w / 2; x < h.x + h.w; x += 400) ctx.fillText('⚠ VIRUS POOL', x, h.y + 22);
+}
+
+function drawPlat(ctx, q, t, p) {
+  let x = q.x, y = q.y;
+  if (q.kind === 'barrier') {
+    if (q.openBarrier) return;
+    ctx.fillStyle = '#2a1020'; ctx.fillRect(x, y, q.w, q.h);
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, q.w, q.h); ctx.clip(); ctx.strokeStyle = '#ff5470'; ctx.lineWidth = 6;
+    for (let k = -q.h; k < q.w + q.h; k += 24) { ctx.beginPath(); ctx.moveTo(x + k, y); ctx.lineTo(x + k + q.h, y + q.h); ctx.stroke(); }
+    ctx.restore();
+    ctx.strokeStyle = '#ff5470'; ctx.lineWidth = 2; ctx.strokeRect(x, y, q.w, q.h);
+    pill(ctx, '🔒 ' + q.label, x + q.w / 2, y - 14, { border: '#ff5470' });
+    return;
+  }
+  if (q.kind === 'kill') {
+    const fl = 0.75 + Math.sin(t / 6) * 0.25;
+    ctx.fillStyle = COLORS.kill; roundRect(ctx, x, y, q.w, q.h, 4); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,84,112,' + fl.toFixed(2) + ')'; ctx.lineWidth = 2; ctx.stroke();
+    pill(ctx, '⬇ ' + q.label, x + q.w / 2, y - 13, { border: 'rgba(255,84,112,0.6)', maxW: 130 });
+    return;
+  }
+  if (q.kind === 'crumble') {
+    if (q.state === 'gone') { ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(x, y, q.w, q.h); ctx.setLineDash([]); return; }
+    if (q.state === 'shaking') { x += (Math.random() - 0.5) * 4; y += (Math.random() - 0.5) * 3; }
+    ctx.fillStyle = q.state === 'shaking' ? '#7a3b1e' : COLORS.tile; roundRect(ctx, x, y, q.w, q.h, 4); ctx.fill();
+    ctx.fillStyle = q.state === 'shaking' ? '#ff9f43' : '#7fd3ff'; ctx.fillRect(x, y, q.w, 3);
+    pill(ctx, '✉ ' + q.label, x + q.w / 2, y - 13, { maxW: 120, border: q.state === 'shaking' ? '#ff9f43' : null });
+    return;
+  }
+  if (q.kind === 'moving') {
+    const isElev = !!q.elevator;
+    ctx.fillStyle = isElev ? '#3a3f5c' : COLORS.safe; roundRect(ctx, x, y, q.w, q.h, 4); ctx.fill();
+    ctx.fillStyle = isElev ? (q.active ? COLORS.safeTop : '#ff9f43') : COLORS.safeTop; ctx.fillRect(x, y, q.w, 3);
+    if (isElev) {
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y + 3, q.w, q.h - 3); ctx.clip(); ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 4;
+      for (let k = 0; k < q.w + 20; k += 20) { ctx.beginPath(); ctx.moveTo(x + k, y + q.h); ctx.lineTo(x + k + 12, y); ctx.stroke(); }
+      ctx.restore();
+      pill(ctx, q.active ? '⬆ ELEVATOR v2.4 ✓' : '⚠ ELEVATOR — buggy, needs update', x + q.w / 2, y - 14, { border: q.active ? COLORS.safeTop : '#ff9f43', maxW: 160 });
+      // shaft rails
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(q.x + 4, 190); ctx.lineTo(q.x + 4, 520); ctx.moveTo(q.x + q.w - 4, 190); ctx.lineTo(q.x + q.w - 4, 520); ctx.stroke();
+    } else pill(ctx, '✓ ' + q.label, x + q.w / 2, y - 13, { border: 'rgba(61,220,132,0.5)', maxW: 120 });
+    return;
+  }
+  // solid / ground
+  ctx.fillStyle = q.ground ? COLORS.ground : COLORS.plat; ctx.fillRect(x, y, q.w, q.h);
+  ctx.fillStyle = COLORS.platTop; ctx.fillRect(x, y, q.w, 3);
+  ctx.fillStyle = 'rgba(56,225,255,0.12)'; ctx.fillRect(x, y + 3, q.w, 6);
+  if (q.h > 30) { // circuit traces
+    ctx.strokeStyle = 'rgba(56,225,255,0.10)'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let k = 20; k < q.w - 10; k += 60) { ctx.moveTo(x + k, y + 20); ctx.lineTo(x + k, y + Math.min(q.h - 10, 60)); ctx.lineTo(x + k + 30, y + Math.min(q.h - 10, 60)); }
+    ctx.stroke();
+  }
+  ctx.strokeStyle = COLORS.platEdge; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, q.w - 1, q.h - 1);
+}
+
+function drawCheckpoint(ctx, c, t) {
+  ctx.fillStyle = '#9fb0d0'; ctx.fillRect(c.x - 2, c.y - 64, 4, 64);
+  ctx.fillStyle = c.hit ? COLORS.safeTop : '#5a6a8a';
+  const wave = Math.sin(t / 8) * 3;
+  ctx.beginPath(); ctx.moveTo(c.x + 2, c.y - 64); ctx.lineTo(c.x + 34 + wave, c.y - 54); ctx.lineTo(c.x + 2, c.y - 42); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#2a4478'; ctx.fillRect(c.x - 10, c.y - 4, 20, 4);
+}
+function drawSignPost(ctx, s) {
+  ctx.fillStyle = '#6b4f2a'; ctx.fillRect(s.x - 3, s.y - 46, 6, 46);
+  ctx.fillStyle = '#c8933a'; roundRect(ctx, s.x - 18, s.y - 62, 36, 24, 4); ctx.fill();
+  ctx.fillStyle = '#1b1b1b'; ctx.font = 'bold 15px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('i', s.x, s.y - 50);
+}
+function drawBubble(ctx, s, cam) {
+  const maxW = s.wide ? 360 : 280;
+  ctx.font = '13px system-ui, sans-serif';
+  const lines = wrapText(ctx, s.text, maxW);
+  const lh = 17, w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 24, h = lines.length * lh + 16;
+  let x = s.x - w / 2; x = Math.max(cam + 8, Math.min(cam + PH.W - 8 - w, x));
+  const y = s.y - 78 - h;
+  ctx.fillStyle = 'rgba(8,12,26,0.94)'; roundRect(ctx, x, y, w, h, 10); ctx.fill();
+  ctx.strokeStyle = COLORS.platTop; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = 'rgba(8,12,26,0.94)'; ctx.beginPath(); ctx.moveTo(s.x - 8, y + h); ctx.lineTo(s.x, y + h + 10); ctx.lineTo(s.x + 8, y + h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = COLORS.text; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, x + 12, y + 8 + i * lh));
+}
+function drawPanel(ctx, pn, t) {
+  const x = pn.x, y = pn.y;
+  ctx.fillStyle = '#5a6a8a'; ctx.fillRect(x - 3, y - 40, 6, 40);
+  ctx.fillStyle = '#2b3350'; roundRect(ctx, x - 22, y - 78, 44, 42, 5); ctx.fill();
+  ctx.strokeStyle = '#9fb0d0'; ctx.lineWidth = 1; ctx.stroke();
+  const on = pn.used || ((t / 20) | 0) % 2 === 0;
+  ctx.fillStyle = pn.used ? '#0f3d2a' : (on ? '#2a1a0a' : '#111'); ctx.fillRect(x - 17, y - 73, 34, 24);
+  ctx.fillStyle = pn.used ? COLORS.safeTop : '#ff9f43'; ctx.font = 'bold 9px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(pn.used ? 'v2.4 ✓' : (on ? 'UPDATE?' : ''), x, y - 61);
+  pill(ctx, pn.used ? 'Patched' : 'Stand here to open the update panel', x, y - 92, { maxW: 150, border: pn.used ? COLORS.safeTop : '#ff9f43' });
+}
+function drawNpc(ctx, n, t) {
+  const x = n.x, y = n.y, bob = Math.sin(t / 12) * 2;
+  ctx.fillStyle = '#4b2a8a'; roundRect(ctx, x - 16, y - 46 + bob, 32, 46 - bob, 8); ctx.fill();
+  ctx.fillStyle = '#2a1650'; ctx.beginPath(); ctx.arc(x, y - 36 + bob, 13, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = n.resolved ? '#5a6a8a' : '#ff5470'; ctx.fillRect(x - 6, y - 38 + bob, 4, 3); ctx.fillRect(x + 2, y - 38 + bob, 4, 3);
+  pill(ctx, n.resolved ? '🚫 ' + n.name + ' (blocked)' : '💬 ' + n.name, x, y - 64 + bob, { border: n.resolved ? '#5a6a8a' : '#ff5470', maxW: 160 });
+}
+function drawItem(ctx, it, t) {
+  const bob = Math.sin(t / 10 + it.x) * 3, y = it.y + bob;
+  if (it.kind === 'key') {
+    ctx.fillStyle = 'rgba(255,204,77,0.25)'; ctx.beginPath(); ctx.arc(it.x, y, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '24px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🔑', it.x, y);
+    pill(ctx, it.label, it.x, y - 28, { border: COLORS.gold });
+    return;
+  }
+  ctx.fillStyle = 'rgba(255,204,77,0.2)'; ctx.beginPath(); ctx.arc(it.x, y, 17, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = COLORS.gold; ctx.beginPath(); ctx.arc(it.x, y, 11, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#7a5a10'; ctx.font = 'bold 12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('i', it.x, y + 1);
+  pill(ctx, it.label, it.x, y - 24, { maxW: 110 });
+}
+function drawPlayer(ctx, p, t) {
+  const sq = p.squash || 0, w = p.w + sq * 0.6, h = p.h - sq, x = p.x + (p.w - w) / 2, y = p.y + (p.h - h);
+  // shadow glow
+  ctx.fillStyle = 'rgba(56,225,255,0.18)'; ctx.beginPath(); ctx.ellipse(x + w / 2, y + h + 2, w * 0.6, 4, 0, 0, Math.PI * 2); ctx.fill();
+  // body
+  ctx.fillStyle = '#5de1ff'; roundRect(ctx, x, y + 6, w, h - 6, 8); ctx.fill();
+  ctx.strokeStyle = '#1b6f8a'; ctx.lineWidth = 2; ctx.stroke();
+  // visor
+  ctx.fillStyle = '#0b1b33'; roundRect(ctx, x + 4, y + 10, w - 8, 14, 6); ctx.fill();
+  const ex = x + w / 2 + p.face * 5;
+  ctx.fillStyle = '#7ff9ff'; ctx.fillRect(ex - 6, y + 15, 4, 4); ctx.fillRect(ex + 2, y + 15, 4, 4);
+  // shield emblem
+  ctx.fillStyle = '#1b6f8a'; ctx.beginPath(); ctx.moveTo(x + w / 2, y + 27); ctx.lineTo(x + w / 2 + 6, y + 30); ctx.lineTo(x + w / 2, y + 38); ctx.lineTo(x + w / 2 - 6, y + 30); ctx.closePath(); ctx.fill();
+  // antenna
+  ctx.strokeStyle = '#1b6f8a'; ctx.beginPath(); ctx.moveTo(x + w / 2, y + 6); ctx.lineTo(x + w / 2, y - 4); ctx.stroke();
+  ctx.fillStyle = ((t / 15) | 0) % 2 ? COLORS.gold : '#ff9f43'; ctx.beginPath(); ctx.arc(x + w / 2, y - 6, 3, 0, Math.PI * 2); ctx.fill();
+  if (p.hasKey) { ctx.font = '14px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🔑', x + w + 8, y + 12); }
+}
+function drawDoor(ctx, d, keypad) {
+  ctx.fillStyle = '#060a18'; ctx.fillRect(d.x - 6, d.y - 8, d.w + 12, d.h + 8);
+  ctx.fillStyle = 'rgba(255,209,102,' + (0.15 + 0.85 * d.open).toFixed(2) + ')'; ctx.fillRect(d.x, d.y, d.w, d.h);
+  ctx.save(); ctx.beginPath(); ctx.rect(d.x, d.y, d.w, d.h); ctx.clip();
+  const oy = d.open * d.h;
+  ctx.fillStyle = keypad ? '#2a3a66' : '#1e2f5a'; ctx.fillRect(d.x, d.y - oy, d.w, d.h);
+  ctx.strokeStyle = 'rgba(56,225,255,0.5)'; ctx.lineWidth = 2; ctx.strokeRect(d.x + 6, d.y + 8 - oy, d.w - 12, d.h - 16);
+  ctx.fillStyle = COLORS.gold; ctx.beginPath(); ctx.arc(d.x + d.w - 16, d.y + d.h / 2 - oy, 4, 0, Math.PI * 2); ctx.fill();
+  if (keypad) { ctx.fillStyle = '#0b1b33'; roundRect(ctx, d.x + 20, d.y + 30 - oy, 30, 40, 4); ctx.fill(); ctx.fillStyle = COLORS.safeTop; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) ctx.fillRect(d.x + 24 + c * 9, d.y + 34 + r * 11 - oy, 6, 7); }
+  ctx.restore();
+  ctx.strokeStyle = COLORS.platTop; ctx.lineWidth = 2; ctx.strokeRect(d.x - 3, d.y - 4, d.w + 6, d.h + 4);
+  ctx.font = 'bold 12px system-ui, sans-serif';
+  const n = Math.min(3, wrapText(ctx, d.label, 92).length), ph = n * 15 + 6;
+  pill(ctx, d.label, d.x + d.w / 2, d.y - 14 - ph / 2, { maxW: 92, px: 12, border: COLORS.gold, bg: 'rgba(20,28,60,0.98)' });
+}
+function drawMinigate(ctx, mg) {
+  const top = 290, wx = mg.x + 22, ww = mg.w - 22;
+  ctx.fillStyle = '#0f1a3a'; ctx.fillRect(wx, top, ww, PH.GY - top);
+  ctx.strokeStyle = 'rgba(56,225,255,0.12)'; ctx.lineWidth = 1;
+  for (let x = wx + 20; x < wx + ww; x += 40) { ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, PH.GY); ctx.stroke(); }
+  ctx.fillStyle = mg.solved ? COLORS.safeTop : COLORS.platTop; ctx.fillRect(wx, top, ww, 3);
+  pill(ctx, mg.solved ? '✅ Real message chosen' : '✉ ' + mg.question, wx + ww / 2, top - 16, { px: 13, maxW: 220, border: mg.solved ? COLORS.safeTop : COLORS.gold });
+  for (const d of mg.doors) drawDoor(ctx, d, false);
+}
+function drawGate(ctx, L, G) {
+  const g = L.gate, st = CONTENT.stages[G.stage];
+  const wallX = g.x, wallW = L.w - g.x, top = 130;
+  ctx.fillStyle = '#0f1a3a'; ctx.fillRect(wallX, top, wallW, PH.GY - top);
+  ctx.strokeStyle = 'rgba(56,225,255,0.12)'; ctx.lineWidth = 1;
+  for (let x = wallX + 20; x < L.w; x += 40) { ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, PH.GY); ctx.stroke(); }
+  ctx.fillStyle = COLORS.platTop; ctx.fillRect(wallX, top, wallW, 3);
+  // banner with the question
+  const cx = g.x + g.w / 2;
+  ctx.font = 'bold 14px system-ui, sans-serif';
+  const lines = wrapText(ctx, g.type === 'keypad' ? 'VAULT — needs 🔑 key card + code' : st.gate.question, Math.min(320, g.w - 20));
+  const bw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 28, bh = lines.length * 18 + 18;
+  ctx.fillStyle = 'rgba(6,10,24,0.92)'; roundRect(ctx, cx - bw / 2, top + 22, bw, bh, 10); ctx.fill(); ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = COLORS.text; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  lines.forEach((l, i) => ctx.fillText(l, cx, top + 31 + i * 18));
+  ctx.font = '11px system-ui, sans-serif'; ctx.fillStyle = COLORS.muted; ctx.fillText(g.type === 'keypad' ? 'Walk to the keypad and press JUMP ⤒' : 'Walk into a door and press JUMP ⤒ to choose', cx, top + 22 + bh + 8);
+  for (const d of g.doors) drawDoor(ctx, d, g.type === 'keypad');
+}
+
+/* ===================== START ===================== */
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+}
+if (typeof module !== 'undefined' && module.exports) module.exports = { CONTENT, PH, LEVELS, buildLevel, physicsStep, newPlayer, movingY, solids, overlap, findInteractable, render, G, input, wrapText, pill };
+</script>
+</body>
+</html>
