@@ -40,4 +40,4 @@ and `B.gate({ labels: [...] })` the three-door finish. Copying a stage, changing
 and adding a 9th entry to `CONTENT.stages` is a great first project — the game will pick it up
 automatically.
 
-Free to use, copy and adapt for classrooms, scout troops, homeschool co-ops and clubs.
+Free to use.
