@@ -31,23 +31,6 @@ debrief question and an at-home activity for every stage — you do not need to 
 - Tablet / phone: on-screen buttons appear automatically. Landscape works best.
 - **☰** (top right) pauses and opens the menu; **Stage select** lets you replay any unlocked stage.
 
-## Change the words (no coding needed)
-
-Open `index.html` in any text editor (Notepad, TextEdit, VS Code) — or on GitHub click the file,
-then the **pencil** icon to edit in the browser. Near the top you will find:
-
-```
-const CONTENT = { ... }
-```
-
-Everything the game says lives there: stage names, questions, the three options,
-which one is correct (`answer: 0`, `1` or `2`), tips, fact cards, the stranger's chat
-messages, and the facilitator guide text. Change the text between the quotes, save, and
-refresh (or **Commit changes** on GitHub — the live site updates in about a minute).
-
-Two quick rules: keep the quotes around text, and if a sentence contains an apostrophe,
-write it as `\'` (for example `'the game\'s update'`).
-
 ## For a young builder
 
 The stages themselves are defined further down in `LEVELS`, using a tiny builder language:
